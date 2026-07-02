@@ -6,12 +6,26 @@ const main = $("#main");
 let REF = null; // référentiels (motifs, sanctions, statuts…)
 
 // ---------- utilitaires ----------
-async function api(url, options = {}) {
+// Code d'accès (déploiement public avec APP_PASSWORD) : demandé au premier 401,
+// conservé pour la durée de l'onglet.
+let CODE_ACCES = sessionStorage.getItem("disciplina-code") || "";
+
+async function api(url, options = {}, redemander = true) {
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(CODE_ACCES ? { "x-app-password": CODE_ACCES } : {}),
+    },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
+  if (res.status === 401 && redemander) {
+    const saisie = window.prompt("Code d'accès à l'application :");
+    if (saisie === null) throw new Error("Accès refusé — code requis.");
+    CODE_ACCES = saisie.trim();
+    sessionStorage.setItem("disciplina-code", CODE_ACCES);
+    return api(url, options, false);
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.erreur || `Erreur ${res.status}`);
   return data;

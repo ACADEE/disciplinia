@@ -1,0 +1,21 @@
+# Déploiement Netlify :
+#  - le frontend (public/) est servi en statique par le CDN ;
+#  - l'API Express tourne dans la fonction netlify/functions/api.js ;
+#  - les données vivent dans Netlify Blobs (persistant entre déploiements).
+#
+# Variables d'environnement à définir dans Netlify (Site settings → Environment variables) :
+#   ANTHROPIC_API_KEY  → clé API Anthropic (génération des courriers par claude-sonnet-5)
+#   APP_PASSWORD       → code d'accès à l'application (fortement recommandé : site public !)
+
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true

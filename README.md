@@ -15,7 +15,20 @@ Clé API Anthropic (génération des courriers par `claude-sonnet-5`) :
 
 Sans clé, l'application fonctionne intégralement en **mode simulation** (courriers gabarits marqués `[SIMULATION]`).
 
-`npm run seed` réinitialise les données de démonstration.
+`npm run seed` réinitialise les données de démonstration (en local).
+
+## Déploiement Netlify
+
+Le dépôt est prêt pour Netlify : frontend statique (`public/`) + API dans une fonction serverless (`netlify/functions/api.js`, Express encapsulé par `serverless-http`) + données dans **Netlify Blobs** (persistantes entre déploiements). La configuration est dans `netlify.toml` — rien à régler dans l'interface Netlify côté build.
+
+À définir dans **Site settings → Environment variables** puis redéployer :
+
+| Variable | Rôle |
+|----------|------|
+| `APP_PASSWORD` | Code d'accès demandé par l'application (**indispensable** : sans lui, le site est ouvert à tous) |
+| `ANTHROPIC_API_KEY` | Clé API Anthropic (sinon mode simulation) |
+
+Limites du déploiement en ligne : code d'accès unique partagé (pas de comptes/rôles — phase 2), écritures concurrentes non verrouillées (dernier enregistrement gagne).
 
 ## Workflow couvert (bout en bout)
 
@@ -38,7 +51,7 @@ Sans clé, l'application fonctionne intégralement en **mode simulation** (courr
 | 7 | Import des **640 dossiers Excel existants** | Non couvert par le MVP — phase 2 |
 | 8 | Dépôt du règlement en **PDF/DOCX** (extraction de texte) | Phase 2 — copier-coller en attendant |
 | 9 | **Envoi réel** des courriers (LRAR électronique, e-mail) | Phase 2 — le statut « envoyé » est déclaratif |
-| 10 | **Multi-utilisateurs / droits** (RH vs direction) et vraie base de données | Phase 2 — stockage JSON mono-poste actuellement |
+| 10 | **Multi-utilisateurs / droits** (RH vs direction) | Phase 2 — accès par code unique partagé (`APP_PASSWORD`) en attendant |
 
 Chaque manque est aussi marqué `GAP:` dans le code et signalé par un bandeau ⚠️ dans l'interface.
 

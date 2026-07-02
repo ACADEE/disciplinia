@@ -17,3 +17,10 @@
 - Bug corrigé en test : colonnes CSS fixes (220px) dans les graphiques du dashboard → barres à 0 px dans les panneaux étroits. Leçon : préférer `minmax(0, Xfr)` aux largeurs fixes dans les grilles imbriquées.
 - Workflow testé de bout en bout dans le navigateur (dossier D0018 violence : qualification → convocation → validation → envoi → archivage), puis `npm run seed` pour restaurer les données de démo. Toujours réinitialiser les données après un test manuel.
 - Les tests en mode simulation valident le circuit, pas la qualité des courriers : à retester avec la vraie clé API (claude-sonnet-5) dès que Samuel la fournit.
+
+### Session 2 — 2026-07-02 (git, local, adaptation Netlify)
+- Dépôt poussé sur https://github.com/ACADEE/disciplinia (branche main). `data/` et `.env` exclus du dépôt.
+- Netlify ne lance pas de serveur Node : premier deploy → 404. Adaptation faite : Express encapsulé dans une Netlify Function (`serverless-http`), stockage à double backend (fichiers en local, Netlify Blobs en ligne), `netlify.toml` avec redirect `/api/*`.
+- Sécurité du site public : code d'accès via env `APP_PASSWORD` (401 sinon), demandé par le navigateur au premier refus. À définir dans Netlify avec `ANTHROPIC_API_KEY`, puis redéployer.
+- Piège rencontré : `EADDRINUSE` sur 3005 — ne jamais tuer l'instance de l'utilisateur ; `autoPort: true` ajouté au launch.json de test.
+- Rappel pour les prochaines sessions : Samuel utilise le flux GitHub → Netlify ; un `git push` déclenche son déploiement.
