@@ -1,0 +1,15 @@
+{
+  "name": "disciplina-transport",
+  "version": "0.1.0",
+  "description": "MVP de gestion des procédures disciplinaires - entreprise de transport Haute-Savoie",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node lib/seed.js --reset"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "express": "^4.19.2"
+  }
+}

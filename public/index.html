@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disciplina — Gestion des procédures disciplinaires</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">D</div>
+      <div>
+        <div class="brand-name">Disciplina</div>
+        <div class="brand-sub" id="brand-entreprise">—</div>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-item active" data-vue="dashboard">📊 Tableau de bord</button>
+      <button class="nav-item" data-vue="dossiers">🗂️ Dossiers</button>
+      <button class="nav-item" data-vue="nouveau">➕ Nouveau dossier</button>
+      <button class="nav-item" data-vue="config">⚙️ Configuration</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div id="api-status" class="api-status"></div>
+      <div class="mvp-note">MVP — données de démonstration fictives</div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <!-- rendu par app.js -->
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
