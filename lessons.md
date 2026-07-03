@@ -56,3 +56,9 @@
 - Leçon debug : quand une info « disparaît » du courrier, vérifier d'abord le prompt (données) AVANT de soupçonner le pipeline. Ici le pipeline était sain, le modèle hedgeait.
 - Export Word : lib `docx` (pur JS, bundle OK dans les fonctions Netlify). Endpoint `GET /dossiers/:id/courrier-docx` renvoie le .docx en base64 (JSON, évite les soucis de réponse binaire via serverless-http). Client décode base64 → Blob → download. Bouton « Imprimer / PDF » remplacé par « Télécharger WORD ».
 - Renommage signataire « Anne-Sophie Bertrand » → « Marie-Claude Richet » : défaut dans seed.js + migration `migrerConfig()` (appliquée à chaque démarrage, ne remplace que l'ancienne valeur exacte) pour renommer aussi la config déjà stockée en Blobs/local sans écraser un choix volontaire.
+
+### Session 8 — 2026-07-03 (fix déterministe entretien + markdown)
+- Le durcissement du prompt (session 7) NE suffisait PAS : le modèle remplaçait toujours date/heure/lieu par `[À COMPLÉTER]` et sortait du Markdown (`**...**`). Leçon clé : **ne pas dépendre uniquement de l'obéissance du modèle** pour une exigence stricte → post-traitement déterministe en code.
+- Ajout dans letter.js : `injecterEntretien()` (remplace les motifs « Libellé : [placeholder] » Date/Heure/Lieu par les valeurs saisies) + `nettoyerMarkdown()` + `postTraiter()` appliqué à la sortie IA ET à la simulation. Règle système 9 = interdiction du Markdown (ceinture + bretelles).
+- docx.js : mise en page pro (objet en gras, corps justifié, Times New Roman 12pt, marges 2cm) + strip Markdown défensif.
+- IMPORTANT process : Samuel voyait « toujours » le bug car le correctif de session 7 avait été poussé mais il testait avant redéploiement / le modèle hedgeait encore. Toujours confirmer que le déploiement Netlify est à jour avant de conclure. Le fix déterministe (session 8) rend le résultat indépendant du modèle.
