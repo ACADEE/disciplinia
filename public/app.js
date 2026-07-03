@@ -227,6 +227,11 @@ async function vueDetail(id, opts = {}) {
     <div class="panel" id="section-courrier">
       <h2>3. Courrier</h2>
       ${
+        dossier.generation && dossier.generation.statut === "en_cours"
+          ? `<div class="alerte info" id="gen-encours">⏳ Rédaction du courrier par l'IA en cours… (jusqu'à ~1 min). Le résultat s'affichera automatiquement.</div>`
+          : ""
+      }
+      ${
         dossier.sanctionRetenue
           ? `
         <div class="grid cols-2 no-print">
@@ -296,8 +301,9 @@ async function vueDetail(id, opts = {}) {
   $("#btn-generer")?.addEventListener("click", async (ev) => {
     const btn = ev.target;
     btn.disabled = true;
-    btn.textContent = "Génération en cours…";
+    btn.textContent = "Génération lancée…";
     try {
+      // 202 immédiat : la génération se fait en tâche de fond (pas de timeout serverless).
       await api(`/api/dossiers/${id}/generer-courrier`, {
         method: "POST",
         body: {
@@ -307,8 +313,7 @@ async function vueDetail(id, opts = {}) {
           consignesRedaction: $("#consignes").value,
         },
       });
-      toast("Courrier généré.");
-      vueDetail(id);
+      await suivreEtAfficherGeneration(id, btn);
     } catch (e) {
       toast(e.message, true);
       btn.disabled = false;
@@ -353,6 +358,45 @@ async function vueDetail(id, opts = {}) {
       sec.classList.add("surbrillance");
       setTimeout(() => sec.classList.remove("surbrillance"), 1600);
     }
+  }
+
+  // Reprise du suivi si le dossier est rouvert alors qu'une génération est en cours
+  // (ex. rechargement de page pendant la rédaction par l'IA).
+  if (dossier.generation && dossier.generation.statut === "en_cours") {
+    const btn = $("#btn-generer");
+    if (btn) { btn.disabled = true; btn.textContent = "Rédaction par l'IA en cours…"; }
+    suivreEtAfficherGeneration(id, btn);
+  }
+}
+
+// Interroge le dossier jusqu'à ce que la génération soit terminée / en erreur.
+async function suivreGeneration(id, { maxMs = 180000, intervalMs = 2500 } = {}) {
+  const debut = Date.now();
+  while (Date.now() - debut < maxMs) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    let d;
+    try { d = await api(`/api/dossiers/${id}`); } catch { continue; }
+    const g = d.generation;
+    if (g && g.statut === "termine") return "termine";
+    if (g && g.statut === "erreur") return { statut: "erreur", message: g.message };
+    if (!g && d.courrier) return "termine"; // compat anciens dossiers
+  }
+  return "timeout";
+}
+
+// Suit la génération et met à jour l'UI ; `btn` (optionnel) est le bouton à réactiver en cas d'échec.
+async function suivreEtAfficherGeneration(id, btn) {
+  if (btn) btn.textContent = "Rédaction par l'IA en cours… (jusqu'à ~1 min)";
+  const r = await suivreGeneration(id);
+  if (r === "termine") {
+    toast("Courrier généré.");
+    await vueDetail(id, { focusCourrier: true });
+  } else if (r && r.statut === "erreur") {
+    toast(`Échec de la génération : ${r.message || "erreur"}`, true);
+    await vueDetail(id);
+  } else {
+    toast("La génération prend plus de temps que prévu. Réactualisez le dossier dans un instant.", true);
+    if (btn) { btn.disabled = false; btn.textContent = "Générer le courrier"; }
   }
 }
 

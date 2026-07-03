@@ -42,7 +42,7 @@ Tout le stockage passe par une couche unique — [lib/store.js](lib/store.js), a
 
 1. **Saisie du fait** — salarié, motif (18 motifs : vol, excès de vitesse, violence, alcool, fraude chronotachygraphe…), dates, description circonstanciée, témoins.
 2. **Qualification** — proposition automatique (grille de gravité + détection de récidive < 3 ans) avec garde-fous juridiques : prescription 2 mois (L1332-4), entretien préalable obligatoire (L1332-2), non bis in idem, durée max de mise à pied, faute lourde = intention de nuire. **La décision finale reste humaine** (sanction modifiable).
-3. **Génération du courrier** — convocation à entretien préalable, notification de sanction, avertissement ou rappel à l'ordre, rédigé par l'API Anthropic à partir du règlement intérieur déposé. Éditable, imprimable (Ctrl+P → PDF).
+3. **Génération du courrier** — convocation à entretien préalable, notification de sanction, avertissement ou rappel à l'ordre, rédigé par l'API Anthropic à partir du règlement intérieur déposé. Éditable, imprimable (Ctrl+P → PDF). La génération s'exécute **en tâche de fond** (le navigateur suit l'avancement) : l'appel IA long ne bloque plus la requête et ne provoque plus de timeout 504 sur Netlify. En ligne, elle s'appuie sur une **background function** Netlify (`netlify/functions/generer-background.js`, jusqu'à 15 min — nécessite un plan Netlify qui l'autorise).
 4. **Validation** — circuit courrier généré → en validation → validé → envoyé → archivé (ou classé sans suite).
 5. **Dashboard direction** — volumes, répartition par motif/mois/statut, salariés les plus concernés, alertes de prescription.
 
