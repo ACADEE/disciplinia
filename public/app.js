@@ -474,7 +474,30 @@ async function vueConfig() {
       </div>
     </div>
 
+    <div class="panel">
+      <h2>Sauvegarde des données</h2>
+      <div class="gap-note">⚠️ Le stockage en ligne (Netlify Blobs) n'a pas de sauvegarde automatique. Téléchargez régulièrement une sauvegarde (ex. chaque semaine) et conservez le fichier en lieu sûr.</div>
+      <p style="font-size:13.5px">Le fichier contient tous les dossiers, salariés et la configuration (la clé API n'y figure jamais).</p>
+      <div class="btn-row"><button class="btn" id="btn-export">💾 Télécharger une sauvegarde</button></div>
+    </div>
+
     <div class="btn-row"><button class="btn primary" id="btn-save-config">💾 Enregistrer la configuration</button></div>`;
+
+  $("#btn-export").addEventListener("click", async () => {
+    try {
+      const data = await api("/api/export");
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `disciplina-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast(`Sauvegarde téléchargée (${data.dossiers.length} dossier(s)).`);
+    } catch (e) { toast(e.message, true); }
+  });
 
   $("#c-fichier").addEventListener("change", (ev) => {
     const f = ev.target.files[0];

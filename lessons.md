@@ -31,3 +31,10 @@
 - Piège secondaire corrigé : le seed tournait à l'import (`const ready = seed()`) donc AVANT `connectLambda`. Rendu paresseux via `ensureReady()` (mémoïsé), appelé après `connectLambda`.
 - Robustesse ajoutée : l'IIFE de démarrage frontend affiche désormais un message d'erreur au lieu d'un écran blanc.
 - Leçon générale : pour @netlify/blobs en fonction Lambda classique, toujours `connectLambda(event)` ; l'auto-config n'existe que pour les fonctions natives fetch de Netlify.
+
+### Session 4 — 2026-07-03 (question base de données + sauvegarde)
+- Samuel s'inquiétait de « manquer une base de données ». Décision prise avec lui : **rester sur Netlify Blobs + Netlify** pour l'instant (SQL auto-hébergé imposerait de quitter le serverless). SaaS refusé par principe.
+- Point d'architecture à retenir : serverless (Netlify) + SQLite fichier local = incompatibles (pas de disque persistant). On ne peut pas cumuler serverless + SQL classique + sans SaaS ; il faut en lâcher un.
+- `lib/store.js` est le **point de bascule unique** pour changer de stockage (signatures async stables). Migration future = réécrire ce seul fichier. Documenté dans le README.
+- Ajouté : endpoint `GET /api/export` + bouton « Télécharger une sauvegarde » dans Configuration (JSON daté, clé API masquée). Le vrai risque de Blobs n'est pas l'absence de SQL mais l'absence de sauvegarde auto → export manuel régulier.
+- Pour de vraies données disciplinaires (RGPD), recommandation future : SQLite sur serveur FR/EU. Reste en phase 2.

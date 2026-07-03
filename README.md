@@ -30,6 +30,14 @@ Le dépôt est prêt pour Netlify : frontend statique (`public/`) + API dans une
 
 Limites du déploiement en ligne : code d'accès unique partagé (pas de comptes/rôles — phase 2), écritures concurrentes non verrouillées (dernier enregistrement gagne).
 
+## Sauvegarde des données
+
+Les données en ligne sont stockées dans **Netlify Blobs** (persistant entre déploiements) mais **sans sauvegarde automatique**. Depuis l'onglet **Configuration → Sauvegarde des données**, bouton **« Télécharger une sauvegarde »** : un fichier JSON daté (`disciplina-sauvegarde-AAAA-MM-JJ.json`) contenant tous les dossiers, salariés et la configuration (la clé API n'y figure jamais). **À faire régulièrement** (ex. chaque semaine) et à conserver en lieu sûr. C'est aussi le format de reprise si l'on migre vers un vrai SQL plus tard.
+
+## Migrer vers un vrai SQL plus tard (phase 2)
+
+Tout le stockage passe par une couche unique — [lib/store.js](lib/store.js), avec les signatures async `getDossiers/saveDossiers/getSalaries/saveSalaries/getConfig/saveConfig`. Passer à une vraie base ne demande de réécrire **que ce fichier**, sans toucher au reste de l'app. Cibles possibles : **SQLite sur un petit serveur FR/EU** (OVH/Scaleway/Render+disque — maîtrise des données sensibles, bon pour le RGPD) ou **Postgres managé EU**. L'export JSON ci-dessus sert de format de reprise pour réinjecter les données existantes.
+
 ## Workflow couvert (bout en bout)
 
 1. **Saisie du fait** — salarié, motif (18 motifs : vol, excès de vitesse, violence, alcool, fraude chronotachygraphe…), dates, description circonstanciée, témoins.
