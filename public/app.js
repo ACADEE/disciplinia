@@ -264,7 +264,7 @@ async function vueDetail(id, opts = {}) {
           <textarea class="courrier-edit" id="courrier-edit" hidden>${esc(dossier.courrier)}</textarea>
           <div class="btn-row no-print">
             <button class="btn" id="btn-editer">✏️ Modifier</button>
-            <button class="btn" id="btn-imprimer">🖨️ Imprimer / PDF</button>
+            <button class="btn" id="btn-word">📄 Télécharger WORD</button>
             <button class="btn" id="btn-copier">📋 Copier</button>
           </div>
         </div>`
@@ -334,7 +334,25 @@ async function vueDetail(id, opts = {}) {
       } catch (e) { toast(e.message, true); }
     }
   });
-  $("#btn-imprimer")?.addEventListener("click", () => window.print());
+  $("#btn-word")?.addEventListener("click", async (ev) => {
+    const btn = ev.target;
+    btn.disabled = true;
+    try {
+      const { filename, base64 } = await api(`/api/dossiers/${id}/courrier-docx`);
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast("Document Word téléchargé.");
+    } catch (e) { toast(e.message, true); }
+    btn.disabled = false;
+  });
   $("#btn-copier")?.addEventListener("click", async () => {
     await navigator.clipboard.writeText(dossier.courrier || "");
     toast("Courrier copié dans le presse-papiers.");
