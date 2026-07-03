@@ -1,11 +1,11 @@
 // Lanceur local — l'application Express vit dans lib/app.js (partagée avec la
 // Netlify Function pour le déploiement en ligne).
 // Démarrage : npm start  →  http://localhost:3005
-const { app, ready } = require("./lib/app");
+const { app, ensureReady } = require("./lib/app");
 
 const PORT = process.env.PORT || 3005;
 
-ready.then(() => {
+ensureReady().then(() => {
   app.listen(PORT, () => {
     console.log(`MVP disciplinaire démarré : http://localhost:${PORT}`);
     if (!process.env.ANTHROPIC_API_KEY) {

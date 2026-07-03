@@ -24,3 +24,10 @@
 - Sécurité du site public : code d'accès via env `APP_PASSWORD` (401 sinon), demandé par le navigateur au premier refus. À définir dans Netlify avec `ANTHROPIC_API_KEY`, puis redéployer.
 - Piège rencontré : `EADDRINUSE` sur 3005 — ne jamais tuer l'instance de l'utilisateur ; `autoPort: true` ajouté au launch.json de test.
 - Rappel pour les prochaines sessions : Samuel utilise le flux GitHub → Netlify ; un `git push` déclenche son déploiement.
+
+### Session 3 — 2026-07-02 (bug Netlify : zone centrale vide)
+- Symptôme : nav OK (statique/CDN) mais zone centrale vide. Cause : la fonction serverless renvoyait 500 sur tous les `/api/*`, et le démarrage de `public/app.js` n'avait pas de `catch` → écran blanc.
+- Cause racine : **Netlify Blobs n'est pas auto-configuré dans une fonction en mode Lambda** (`exports.handler` + serverless-http). Il faut `connectLambda(event)` en tête du handler AVANT tout `getStore()`. Message d'erreur révélateur : « The environment has not been configured to use Netlify Blobs ».
+- Piège secondaire corrigé : le seed tournait à l'import (`const ready = seed()`) donc AVANT `connectLambda`. Rendu paresseux via `ensureReady()` (mémoïsé), appelé après `connectLambda`.
+- Robustesse ajoutée : l'IIFE de démarrage frontend affiche désormais un message d'erreur au lieu d'un écran blanc.
+- Leçon générale : pour @netlify/blobs en fonction Lambda classique, toujours `connectLambda(event)` ; l'auto-config n'existe que pour les fonctions natives fetch de Netlify.

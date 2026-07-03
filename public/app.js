@@ -532,6 +532,25 @@ async function chargerReferentiels() {
 }
 
 (async () => {
-  await chargerReferentiels();
-  vueDashboard();
+  try {
+    await chargerReferentiels();
+    vueDashboard();
+  } catch (e) {
+    // Ne jamais laisser la zone centrale vide : afficher l'erreur plutôt qu'un écran blanc.
+    main.innerHTML = `
+      <h1>Impossible de charger l'application</h1>
+      <div class="alerte danger">${esc(e.message)}</div>
+      <div class="panel">
+        <p>Le serveur (API) n'a pas répondu correctement. Vérifiez :</p>
+        <ul>
+          <li>que le code d'accès saisi est correct (le cas échéant) ;</li>
+          <li>en ligne : que les variables <b>APP_PASSWORD</b> et <b>ANTHROPIC_API_KEY</b> sont définies dans Netlify, puis redéployez ;</li>
+          <li>la console du navigateur et les logs de la fonction Netlify pour le détail.</li>
+        </ul>
+        <div class="btn-row">
+          <button class="btn primary" onclick="sessionStorage.removeItem('disciplina-code');location.reload()">Ressaisir le code d'accès</button>
+          <button class="btn" onclick="location.reload()">Réessayer</button>
+        </div>
+      </div>`;
+  }
 })();
