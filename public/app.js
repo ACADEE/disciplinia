@@ -174,11 +174,23 @@ async function vueDossiers() {
 }
 
 // ---------- Détail d'un dossier (qualification → courrier → validation) ----------
-async function vueDetail(id) {
-  const [dossier, qualif] = await Promise.all([
-    api(`/api/dossiers/${id}`),
-    api(`/api/dossiers/${id}/qualification`),
-  ]);
+async function vueDetail(id, opts = {}) {
+  let dossier, qualif;
+  try {
+    [dossier, qualif] = await Promise.all([
+      api(`/api/dossiers/${id}`),
+      api(`/api/dossiers/${id}/qualification`),
+    ]);
+  } catch (e) {
+    // Ne pas laisser une erreur non catchée (ex. « Dossier introuvable ») casser l'app.
+    main.innerHTML = `
+      <button class="lien-retour" id="retour">← Retour aux dossiers</button>
+      <h1>Dossier indisponible</h1>
+      <div class="alerte danger">${esc(e.message)}</div>
+      <div class="panel"><p>Impossible de charger ce dossier. Il a peut-être été supprimé, ou le serveur n'a pas répondu (ex. délai dépassé lors d'une génération). Revenez à la liste et réessayez.</p></div>`;
+    $("#retour").addEventListener("click", vueDossiers);
+    return;
+  }
   const sanctionActuelle = dossier.sanctionRetenue || qualif.sanctionProposee;
   const convocationPossible = ["convocation"].includes(
     dossier.typeCourrier || qualif.typeCourrier
@@ -212,7 +224,7 @@ async function vueDetail(id) {
       </div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="section-courrier">
       <h2>3. Courrier</h2>
       ${
         dossier.sanctionRetenue
@@ -272,8 +284,8 @@ async function vueDetail(id) {
   $("#btn-qualifier")?.addEventListener("click", async () => {
     try {
       await api(`/api/dossiers/${id}/qualifier`, { method: "POST", body: { sanctionRetenue: $("#sel-sanction").value } });
-      toast("Qualification appliquée.");
-      vueDetail(id);
+      toast("Qualification appliquée — étape 3 débloquée.");
+      await vueDetail(id, { focusCourrier: true });
     } catch (e) { toast(e.message, true); }
   });
 
@@ -332,6 +344,16 @@ async function vueDetail(id) {
       } catch (e) { toast(e.message, true); }
     })
   );
+
+  // Déblocage visible de l'étape 3 après application de la qualification.
+  if (opts.focusCourrier) {
+    const sec = $("#section-courrier");
+    if (sec) {
+      sec.scrollIntoView({ behavior: "smooth", block: "start" });
+      sec.classList.add("surbrillance");
+      setTimeout(() => sec.classList.remove("surbrillance"), 1600);
+    }
+  }
 }
 
 // ---------- Nouveau dossier ----------
@@ -552,6 +574,17 @@ async function chargerReferentiels() {
   const st = $("#api-status");
   st.className = "api-status " + (REF.apiKeyPresente ? "ok" : "ko");
   st.textContent = REF.apiKeyPresente ? `✓ API connectée (${REF.modele})` : "⚠ Clé API absente — mode simulation";
+  majFooter();
+}
+
+// Footer : statut de la connexion à l'API Anthropic + modèle.
+function majFooter() {
+  const f = $("#footer-api");
+  if (!f || !REF) return;
+  f.className = "footer-api " + (REF.apiKeyPresente ? "ok" : "ko");
+  f.innerHTML = REF.apiKeyPresente
+    ? `<span class="dot"></span> API Anthropic connectée — modèle ${esc(REF.modele)}`
+    : `<span class="dot"></span> Mode simulation — clé API Anthropic absente (modèle cible : ${esc(REF.modele)})`;
 }
 
 (async () => {

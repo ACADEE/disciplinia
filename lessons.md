@@ -38,3 +38,8 @@
 - `lib/store.js` est le **point de bascule unique** pour changer de stockage (signatures async stables). Migration future = réécrire ce seul fichier. Documenté dans le README.
 - Ajouté : endpoint `GET /api/export` + bouton « Télécharger une sauvegarde » dans Configuration (JSON daté, clé API masquée). Le vrai risque de Blobs n'est pas l'absence de SQL mais l'absence de sauvegarde auto → export manuel régulier.
 - Pour de vraies données disciplinaires (RGPD), recommandation future : SQLite sur serveur FR/EU. Reste en phase 2.
+
+### Session 5 — 2026-07-03 (footer + déblocage étape 3 + bug 504 génération)
+- Fait : footer avec statut connexion API Anthropic (`majFooter()`, vert = connectée / ambre = simulation) + modèle claude-sonnet-5. Déblocage auto de l'étape 3 après qualification (`vueDetail(id, {focusCourrier:true})` → scroll + surbrillance). Garde-fou : `vueDetail` catch les erreurs de chargement (plus d'« Uncaught Dossier introuvable »).
+- **Bug 504 génération courrier (NON résolu à ce stade)** : cause = l'appel Anthropic (claude-sonnet-5, lettre complète) dépasse le timeout des fonctions synchrones Netlify (10s par défaut, 26s max selon plan). Le streaming Anthropic→fonction n'aide PAS (réponse bufferisée par serverless-http → toujours un seul renvoi). Correctifs possibles, dépendants du plan Netlify : fonction de fond + polling (Pro+), streaming de réponse (tous plans, mais casse l'unification local/serverless via Express), ou relever le timeout à 26s (selon plan). → Question posée à Samuel sur son plan Netlify avant d'implémenter.
+- Le « Dossier introuvable » en cascade venait probablement du 504 laissant l'UI dans un état incohérent ; le catch ajouté le rend non bloquant.

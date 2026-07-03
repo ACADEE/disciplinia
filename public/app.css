@@ -60,7 +60,29 @@ nav { display: flex; flex-direction: column; gap: 4px; }
 .mvp-note { opacity: 0.7; }
 
 /* --- Main --- */
-main { margin-left: 240px; flex: 1; padding: 28px 32px; max-width: 1180px; }
+main { margin-left: 240px; flex: 1; padding: 28px 32px 60px; max-width: 1180px; }
+
+/* --- Footer (statut connexion API) --- */
+.app-footer {
+  position: fixed; left: 240px; right: 0; bottom: 0; z-index: 30;
+  background: #fff; border-top: 1px solid var(--line);
+  padding: 8px 20px; font-size: 12.5px; color: var(--muted);
+  display: flex; align-items: center; gap: 10px;
+}
+.footer-api { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.footer-api .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.footer-api.ok { color: var(--ok); }
+.footer-api.ok .dot { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+.footer-api.ko { color: var(--warning); }
+.footer-api.ko .dot { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }
+.footer-sep { color: var(--line); }
+.footer-note { opacity: 0.85; }
+@media (max-width: 900px) { .app-footer { left: 0; } .footer-sep, .footer-note { display: none; } }
+@media print { .app-footer { display: none !important; } }
+
+/* Surbrillance temporaire de l'étape 3 après qualification */
+@keyframes surbrillanceFade { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 3px transparent; } }
+.panel.surbrillance { animation: surbrillanceFade 1.6s ease-out; }
 h1 { font-size: 22px; margin: 0 0 4px; }
 .sous-titre { color: var(--muted); margin: 0 0 22px; font-size: 14px; }
 h2 { font-size: 16px; margin: 0 0 12px; }
