@@ -62,3 +62,10 @@
 - Ajout dans letter.js : `injecterEntretien()` (remplace les motifs « Libellé : [placeholder] » Date/Heure/Lieu par les valeurs saisies) + `nettoyerMarkdown()` + `postTraiter()` appliqué à la sortie IA ET à la simulation. Règle système 9 = interdiction du Markdown (ceinture + bretelles).
 - docx.js : mise en page pro (objet en gras, corps justifié, Times New Roman 12pt, marges 2cm) + strip Markdown défensif.
 - IMPORTANT process : Samuel voyait « toujours » le bug car le correctif de session 7 avait été poussé mais il testait avant redéploiement / le modèle hedgeait encore. Toujours confirmer que le déploiement Netlify est à jour avant de conclure. Le fix déterministe (session 8) rend le résultat indépendant du modèle.
+
+### Session 9 — 2026-07-07 (cadrage client → 3 évolutions)
+- Créé FEATURES.md (inventaire F0-F44 pour cahier des charges inversé).
+- Analyse des réponses client : mono-utilisateur (RRH/DRH) → archi actuelle OK ; 0 prud'hommes → argumentaire = TEMPS/homogénéité, pas risque juridique ; récidive suivie à la main sur Teams → notre détection auto = différenciateur.
+- **Point clé métier** : le client sanctionne surtout via code du travail + code de la route + process internes + règles de courtoisie, PEU via le règlement intérieur. → Implémenté (F42) : `buildSystem` réécrit avec 5 bases de référence hiérarchisées (RI secondaire) ; config `processInternes` + `reglesCourtoisie` (seed + UI + save). `buildSystem` gère l'absence des champs (opt()).
+- Implémenté aussi : camembert SVG des motifs (F29, helper `camembertHtml`, regroupe >8 en « Autres motifs ») ; vue historique par salarié (F44, endpoint `GET /api/salaries/:id/historique` + `vueHistoriqueSalarie`, compte les sanctions invocables <3 ans). Testé en local.
+- Laissé volontairement en copier-coller : import Word/PDF du règlement (demande explicite Samuel « laisse 4 en copier coller »).

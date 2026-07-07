@@ -63,6 +63,49 @@ function alertesHtml(alertes) {
   return (alertes || []).map((a) => `<div class="alerte ${a.niveau}">${esc(a.texte)}</div>`).join("");
 }
 
+// Palette pour le camembert des motifs.
+const PALETTE = ["#1f4e79", "#2e8b57", "#c9820a", "#8e44ad", "#c0392b", "#16a085", "#2980b9", "#d35400", "#7f8c8d", "#b7950b"];
+
+function pointPolaire(cx, cy, r, deg) {
+  const rad = ((deg - 90) * Math.PI) / 180;
+  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+}
+function arcCamembert(cx, cy, r, debut, fin) {
+  const [x1, y1] = pointPolaire(cx, cy, r, fin);
+  const [x2, y2] = pointPolaire(cx, cy, r, debut);
+  const grand = fin - debut <= 180 ? 0 : 1;
+  return `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${grand} 0 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+}
+
+// Camembert SVG + légende à partir d'entrées [label, valeur]. Regroupe au-delà de maxParts.
+function camembertHtml(entries, maxParts = 8) {
+  const tries = entries.slice().sort((a, b) => b[1] - a[1]);
+  let parts = tries;
+  if (tries.length > maxParts) {
+    const tete = tries.slice(0, maxParts - 1);
+    const reste = tries.slice(maxParts - 1).reduce((s, [, n]) => s + n, 0);
+    parts = [...tete, ["Autres motifs", reste]];
+  }
+  const total = parts.reduce((s, [, n]) => s + n, 0) || 1;
+  let acc = 0;
+  const slices = parts
+    .map(([, n], i) => {
+      const debut = (acc / total) * 360;
+      acc += n;
+      let fin = (acc / total) * 360;
+      if (fin - debut >= 360) fin = 359.999; // un seul motif = cercle quasi plein
+      return `<path d="${arcCamembert(90, 90, 88, debut, fin)}" fill="${PALETTE[i % PALETTE.length]}" stroke="#fff" stroke-width="1"></path>`;
+    })
+    .join("");
+  const legende = parts
+    .map(([label, n], i) => {
+      const pct = Math.round((n / total) * 100);
+      return `<div class="cam-leg"><span class="cam-dot" style="background:${PALETTE[i % PALETTE.length]}"></span><span class="cam-lbl" title="${esc(label)}">${esc(label)}</span><b>${n}</b><span class="cam-pct">${pct}%</span></div>`;
+    })
+    .join("");
+  return `<div class="cam-wrap"><svg viewBox="0 0 180 180" class="cam-svg" role="img" aria-label="Répartition des motifs">${slices}</svg><div class="cam-legend">${legende}</div></div>`;
+}
+
 // ---------- navigation ----------
 document.querySelectorAll(".nav-item").forEach((btn) =>
   btn.addEventListener("click", () => {
@@ -99,14 +142,7 @@ async function vueDashboard() {
     <div class="grid cols-2">
       <div class="panel">
         <h2>Répartition par motif</h2>
-        ${Object.entries(d.parMotif)
-          .sort((a, b) => b[1] - a[1])
-          .map(
-            ([motif, n]) => `
-          <div class="bar-row"><span title="${esc(motif)}">${esc(motif.length > 34 ? motif.slice(0, 33) + "…" : motif)}</span>
-          <div class="bar-track"><div class="bar-fill" style="width:${(n / maxMotif) * 100}%"></div></div><b>${n}</b></div>`
-          )
-          .join("")}
+        ${Object.keys(d.parMotif).length ? camembertHtml(Object.entries(d.parMotif)) : `<p style="color:var(--muted)">Aucun dossier.</p>`}
       </div>
       <div class="panel">
         <h2>Dossiers par mois (date du fait)</h2>
@@ -199,7 +235,7 @@ async function vueDetail(id, opts = {}) {
   main.innerHTML = `
     <button class="lien-retour" id="retour">← Retour aux dossiers</button>
     <h1>${esc(dossier.reference)} — ${esc(dossier.salarieNom)}</h1>
-    <p class="sous-titre">${esc(dossier.motifLabel)} · Fait du ${dateFr(dossier.dateFait)} · ${statutBadge(dossier.statut)}</p>
+    <p class="sous-titre">${esc(dossier.motifLabel)} · Fait du ${dateFr(dossier.dateFait)} · ${statutBadge(dossier.statut)} · <button class="lien-inline" id="btn-histo-salarie">👤 Historique disciplinaire du salarié</button></p>
 
     <div class="grid cols-2">
       <div class="panel">
@@ -285,6 +321,7 @@ async function vueDetail(id, opts = {}) {
     </div>`;
 
   $("#retour").addEventListener("click", vueDossiers);
+  $("#btn-histo-salarie")?.addEventListener("click", () => vueHistoriqueSalarie(dossier.salarieId));
 
   $("#btn-qualifier")?.addEventListener("click", async () => {
     try {
@@ -418,6 +455,40 @@ async function suivreEtAfficherGeneration(id, btn) {
   }
 }
 
+// ---------- Historique disciplinaire d'un salarié ----------
+async function vueHistoriqueSalarie(id) {
+  let h;
+  try {
+    h = await api(`/api/salaries/${id}/historique`);
+  } catch (e) { toast(e.message, true); return; }
+  const s = h.salarie;
+  main.innerHTML = `
+    <button class="lien-retour" id="retour">← Retour aux dossiers</button>
+    <h1>${esc(s.prenom)} ${esc(s.nom)}</h1>
+    <p class="sous-titre">${esc(s.poste || "")}${s.dateEmbauche ? " · Embauché le " + dateFr(s.dateEmbauche) : ""}</p>
+    <div class="grid cols-4">
+      <div class="panel kpi"><div class="val">${h.stats.total}</div><div class="lib">Dossiers au total</div></div>
+      <div class="panel kpi"><div class="val" style="color:${h.stats.sanctionsInvocables ? "var(--danger)" : "var(--ok)"}">${h.stats.sanctionsInvocables}</div><div class="lib">Sanctions invocables (&lt; 3 ans)</div></div>
+    </div>
+    <div class="panel">
+      <h2>Historique disciplinaire</h2>
+      ${
+        h.dossiers.length
+          ? `<table>
+        <thead><tr><th>Référence</th><th>Date du fait</th><th>Motif</th><th>Sanction</th><th>Statut</th></tr></thead>
+        <tbody>${h.dossiers
+          .map(
+            (d) => `<tr class="clickable" data-id="${d.id}"><td><b>${esc(d.reference)}</b></td><td>${dateFr(d.dateFait)}</td><td>${esc(d.motifLabel)}</td><td>${esc(d.sanctionRetenue ? sanctionLabel(d.sanctionRetenue) : "—")}</td><td>${statutBadge(d.statut)}</td></tr>`
+          )
+          .join("")}</tbody>
+      </table>`
+          : `<p style="color:var(--muted)">Aucun dossier pour ce salarié.</p>`
+      }
+    </div>`;
+  $("#retour").addEventListener("click", vueDossiers);
+  document.querySelectorAll("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => vueDetail(tr.dataset.id)));
+}
+
 // ---------- Nouveau dossier ----------
 async function vueNouveau() {
   const salaries = await api("/api/salaries");
@@ -522,6 +593,15 @@ async function vueConfig() {
     </div>
 
     <div class="panel">
+      <h2>Bases de référence de la sanction</h2>
+      <div class="hint" style="margin-bottom:10px">Dans cette entreprise, la sanction s'appuie surtout sur le <b>code du travail</b>, le <b>code de la route</b> (infractions de conduite), les <b>process internes</b> et les <b>règles de courtoisie</b> — le règlement intérieur n'est que secondaire. Le code du travail et le code de la route sont connus de l'IA ; renseignez ci-dessous vos sources internes pour qu'elle s'y réfère.</div>
+      <label>Process internes de l'entreprise</label>
+      <textarea id="c-process" rows="6" placeholder="Coller ici les process/consignes internes servant de base aux sanctions (prise de service, contrôles sécurité, gestion des recettes, etc.)…">${esc(c.processInternes || "")}</textarea>
+      <label>Règles de courtoisie / savoir-être attendu</label>
+      <textarea id="c-courtoisie" rows="5" placeholder="Coller ici la charte de courtoisie / savoir-être (tenue, relation aux usagers, respect des collègues, etc.)…">${esc(c.reglesCourtoisie || "")}</textarea>
+    </div>
+
+    <div class="panel">
       <h2>Grille de gravité</h2>
       <div class="gap-note">⚠️ GAP : grille par défaut proposée par l'outil — à valider/ajuster selon la politique disciplinaire réelle de l'entreprise.</div>
       <table class="grille-table">
@@ -614,6 +694,8 @@ async function vueConfig() {
             conventionCollective: $("#c-ccn").value,
           },
           reglementInterieur: $("#c-reglement").value,
+          processInternes: $("#c-process").value,
+          reglesCourtoisie: $("#c-courtoisie").value,
           miseAPiedDureeMaxJours: Number($("#c-map").value) || null,
           grille,
           apiKey: $("#c-apikey").value,
