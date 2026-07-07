@@ -40,6 +40,36 @@ function toast(msg, erreur = false) {
   t._timer = setTimeout(() => (t.hidden = true), 4000);
 }
 
+// Popup de confirmation modale. `corpsHtml` doit être déjà échappé par l'appelant.
+// Renvoie une promesse résolue à true (confirmé) ou false (annulé).
+function confirmModal({ titre, corpsHtml = "", texteConfirmer = "Confirmer", danger = false }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <h2>${esc(titre)}</h2>
+        <div class="modal-body">${corpsHtml}</div>
+        <div class="modal-actions">
+          <button class="btn" data-a="annuler">Annuler</button>
+          <button class="btn ${danger ? "danger" : "primary"}" data-a="ok">${esc(texteConfirmer)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const fermer = (val) => {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(val);
+    };
+    const onKey = (e) => { if (e.key === "Escape") fermer(false); };
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) fermer(false); });
+    overlay.querySelector('[data-a="annuler"]').addEventListener("click", () => fermer(false));
+    overlay.querySelector('[data-a="ok"]').addEventListener("click", () => fermer(true));
+    document.addEventListener("keydown", onKey);
+    overlay.querySelector('[data-a="ok"]').focus();
+  });
+}
+
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -556,10 +586,15 @@ async function vueNouveau() {
 
 // ---------- Configuration ----------
 async function vueConfig() {
-  const c = await api("/api/config");
+  const [c, salaries, dossiers] = await Promise.all([
+    api("/api/config"),
+    api("/api/salaries"),
+    api("/api/dossiers"),
+  ]);
+  const nbDossiersDe = (sid) => dossiers.filter((d) => d.salarieId === sid).length;
   main.innerHTML = `
     <h1>Configuration</h1>
-    <p class="sous-titre">Espace administrateur — règlement intérieur, grille de gravité, entreprise, API</p>
+    <p class="sous-titre">Espace administrateur — règlement intérieur, grille de gravité, entreprise, salariés, API</p>
 
     <div class="panel">
       <h2>Entreprise</h2>
@@ -623,6 +658,30 @@ async function vueConfig() {
     </div>
 
     <div class="panel">
+      <h2>Salariés</h2>
+      <div class="gap-note">⚠️ Supprimer un salarié supprime aussi <b>définitivement</b> tous ses dossiers disciplinaires. Action irréversible, confirmation demandée.</div>
+      ${
+        salaries.length
+          ? `<table>
+        <thead><tr><th>Salarié</th><th>Poste</th><th>Dossiers rattachés</th><th></th></tr></thead>
+        <tbody>
+          ${salaries
+            .map(
+              (s) => `<tr>
+            <td><b>${esc(s.prenom)} ${esc(s.nom)}</b></td>
+            <td>${esc(s.poste || "—")}</td>
+            <td><button class="lien-inline btn-voir-dossiers" data-id="${s.id}">${nbDossiersDe(s.id)} dossier(s)</button></td>
+            <td style="text-align:right"><button class="btn danger-outline btn-suppr-salarie" data-id="${s.id}">🗑 Supprimer</button></td>
+          </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>`
+          : `<p style="color:var(--muted)">Aucun salarié.</p>`
+      }
+    </div>
+
+    <div class="panel">
       <h2>API Anthropic (génération des courriers)</h2>
       <div class="grid cols-2">
         <div>
@@ -646,6 +705,39 @@ async function vueConfig() {
     </div>
 
     <div class="btn-row"><button class="btn primary" id="btn-save-config">💾 Enregistrer la configuration</button></div>`;
+
+  // Voir les dossiers rattachés à un salarié → ouvre son historique.
+  document.querySelectorAll(".btn-voir-dossiers").forEach((btn) =>
+    btn.addEventListener("click", () => vueHistoriqueSalarie(btn.dataset.id))
+  );
+
+  // Suppression d'un salarié (et de ses dossiers) avec confirmation.
+  document.querySelectorAll(".btn-suppr-salarie").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      const s = salaries.find((x) => x.id === btn.dataset.id);
+      const rattaches = dossiers.filter((d) => d.salarieId === s.id);
+      const liste = rattaches.length
+        ? `<ul class="modal-list">${rattaches
+            .map((d) => `<li><b>${esc(d.reference)}</b> — ${esc(d.motifLabel)} <span style="color:var(--muted)">(${dateFr(d.dateFait)})</span> ${statutBadge(d.statut)}</li>`)
+            .join("")}</ul>`
+        : `<p style="color:var(--muted)">Aucun dossier rattaché.</p>`;
+      const corps = `
+        <p>Vous allez supprimer <b>${esc(s.prenom)} ${esc(s.nom)}</b> et <b>${rattaches.length} dossier(s)</b> rattaché(s). Cette action est <b>irréversible</b>.</p>
+        ${liste}`;
+      const ok = await confirmModal({
+        titre: "Supprimer ce salarié et ses dossiers ?",
+        corpsHtml: corps,
+        texteConfirmer: `Supprimer définitivement (${rattaches.length} dossier(s))`,
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        const res = await api(`/api/salaries/${s.id}`, { method: "DELETE" });
+        toast(`« ${s.prenom} ${s.nom} » supprimé (${res.dossiersSupprimes} dossier(s)).`);
+        vueConfig();
+      } catch (e) { toast(e.message, true); }
+    })
+  );
 
   $("#btn-export").addEventListener("click", async () => {
     try {
