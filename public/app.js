@@ -167,7 +167,7 @@ async function vueDashboard() {
     ${
       d.alertes.length
         ? `<div class="panel"><h2>⏰ Alertes de délais (prescription 2 mois)</h2>${d.alertes
-            .map((a) => `<div class="alerte ${a.niveau}"><b>${esc(a.reference)}</b> — ${esc(a.salarieNom)} : ${esc(a.texte)}</div>`)
+            .map((a) => `<div class="alerte ${a.niveau} alerte-lien" data-id="${esc(a.id)}" role="button" title="Ouvrir le dossier"><b>${esc(a.reference)}</b> — ${esc(a.salarieNom)} : ${esc(a.texte)} <span class="alerte-fleche">Ouvrir le dossier →</span></div>`)
             .join("")}</div>`
         : ""
     }
@@ -195,6 +195,11 @@ async function vueDashboard() {
       <h2>Répartition par statut</h2>
       ${Object.entries(d.parStatut).map(([s, n]) => `${statutBadge(s)} <b style="margin-right:16px">${n}</b>`).join(" ")}
     </div>`;
+
+  // Les alertes de délais renvoient au dossier concerné.
+  document.querySelectorAll(".alerte-lien").forEach((el) =>
+    el.addEventListener("click", () => { if (el.dataset.id) vueDetail(el.dataset.id); })
+  );
 }
 
 // ---------- Liste des dossiers ----------
