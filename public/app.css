@@ -210,8 +210,12 @@ textarea.courrier-edit { font-family: Georgia, serif; font-size: 14px; line-heig
 .lien-inline:hover { text-decoration: underline; }
 
 /* Grille de gravité (config) */
-.grille-table select { padding: 5px 7px; font-size: 12.5px; }
+.grille-table select, .grille-table input { padding: 5px 7px; font-size: 12.5px; }
 .grille-table td { padding: 5px 6px; }
+#table-salaries input { padding: 6px 8px; font-size: 13px; }
+
+/* Petits boutons (édition / suppression dans les tableaux) */
+.btn-mini { padding: 5px 10px; font-size: 12.5px; }
 
 /* Impression : uniquement le courrier */
 @media print {

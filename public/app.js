@@ -80,10 +80,12 @@ function statutBadge(id) {
   const s = REF.statuts.find((x) => x.id === id);
   return `<span class="badge ${id}">${esc(s ? s.label : id)}</span>`;
 }
+const NIVEAU_LABEL = { 1: "Légère", 2: "Sérieuse", 3: "Grave", 4: "Très grave" };
+// Sanction par défaut correspondant à un niveau de gravité (pilote le menu « Sanction retenue »).
+const NIVEAU_SANCTION = { 1: "avertissement", 2: "mise_a_pied", 3: "licenciement_simple", 4: "licenciement_grave" };
 function niveauBadge(n) {
   if (!n) return "—";
-  const libs = { 1: "Légère", 2: "Sérieuse", 3: "Grave", 4: "Très grave" };
-  return `<span class="badge niveau-${n}">${n} — ${libs[n] || ""}</span>`;
+  return `<span class="badge niveau-${n}">${n} — ${NIVEAU_LABEL[n] || ""}</span>`;
 }
 function sanctionLabel(id) {
   const s = REF.sanctions.find((x) => x.id === id);
@@ -282,9 +284,12 @@ async function vueDetail(id, opts = {}) {
       <div class="panel">
         <h2>2. Qualification</h2>
         ${alertesHtml(qualif.alertes)}
-        <p style="font-size:13.5px">Proposition de l'outil (grille de gravité${qualif.recidive ? ", <b>récidive détectée</b>" : ""}) :
+        <p style="font-size:13.5px">Proposition ${qualif.parIA ? "de l'<b>IA</b> (d'après la description du fait et la grille de gravité)" : "de l'outil (grille de gravité)"}${qualif.recidive ? ", <b>récidive détectée</b>" : ""} :
         ${niveauBadge(qualif.niveauGravite)} → <b>${esc(sanctionLabel(qualif.sanctionProposee))}</b></p>
-        <label>Sanction retenue (modifiable — la décision reste humaine)</label>
+        ${qualif.justificationIA ? `<div class="alerte info" style="margin-top:6px">💡 ${esc(qualif.justificationIA)}</div>` : ""}
+        <label>Niveau de gravité (modifiable — ajuste la sanction ci-dessous)</label>
+        <select id="sel-niveau">${[1, 2, 3, 4].map((n) => `<option value="${n}" ${n === (dossier.niveauGravite || qualif.niveauGravite) ? "selected" : ""}>${n} — ${NIVEAU_LABEL[n]}</option>`).join("")}</select>
+        <label>Sanction retenue (la décision reste humaine)</label>
         <select id="sel-sanction">${REF.sanctions.map((s) => `<option value="${s.id}" ${s.id === sanctionActuelle ? "selected" : ""}>${s.label}</option>`).join("")}</select>
         <div class="btn-row"><button class="btn primary" id="btn-qualifier">Appliquer la qualification</button></div>
       </div>
@@ -353,9 +358,18 @@ async function vueDetail(id, opts = {}) {
   $("#retour").addEventListener("click", vueDossiers);
   $("#btn-histo-salarie")?.addEventListener("click", () => vueHistoriqueSalarie(dossier.salarieId));
 
+  // Le menu « Niveau de gravité » pilote automatiquement la sanction retenue.
+  $("#sel-niveau")?.addEventListener("change", (ev) => {
+    const s = NIVEAU_SANCTION[ev.target.value];
+    if (s && $("#sel-sanction")) $("#sel-sanction").value = s;
+  });
+
   $("#btn-qualifier")?.addEventListener("click", async () => {
     try {
-      await api(`/api/dossiers/${id}/qualifier`, { method: "POST", body: { sanctionRetenue: $("#sel-sanction").value } });
+      await api(`/api/dossiers/${id}/qualifier`, {
+        method: "POST",
+        body: { sanctionRetenue: $("#sel-sanction").value, niveauGravite: Number($("#sel-niveau").value) },
+      });
       toast("Qualification appliquée — étape 3 débloquée.");
       await vueDetail(id, { focusCourrier: true });
     } catch (e) { toast(e.message, true); }
@@ -519,16 +533,21 @@ async function vueHistoriqueSalarie(id) {
   document.querySelectorAll("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => vueDetail(tr.dataset.id)));
 }
 
+// Tri des salariés par NOM puis prénom (ordre alphabétique français).
+function parNom(a, b) {
+  return (a.nom || "").localeCompare(b.nom || "", "fr") || (a.prenom || "").localeCompare(b.prenom || "", "fr");
+}
+
 // ---------- Nouveau dossier ----------
 async function vueNouveau() {
-  const salaries = await api("/api/salaries");
+  const salaries = (await api("/api/salaries")).slice().sort(parNom);
   main.innerHTML = `
     <h1>Nouveau dossier disciplinaire</h1>
     <p class="sous-titre">Saisie du fait rapporté — la qualification est proposée à l'étape suivante</p>
     <div class="panel" style="max-width:760px">
       <label>Salarié concerné *</label>
       <select id="f-salarie">
-        ${salaries.map((s) => `<option value="${s.id}">${esc(s.prenom)} ${esc(s.nom)} — ${esc(s.poste)}</option>`).join("")}
+        ${salaries.map((s) => `<option value="${s.id}">${esc(s.nom)} ${esc(s.prenom)}${s.poste ? " — " + esc(s.poste) : ""}</option>`).join("")}
         <option value="__nouveau__">➕ Autre salarié (ajouter)…</option>
       </select>
       <div id="bloc-nouveau-salarie" hidden>
@@ -582,6 +601,21 @@ async function vueNouveau() {
       vueDetail(dossier.id);
     } catch (e) { toast(e.message, true); }
   });
+}
+
+// Ligne éditable de la grille de gravité (réutilisée pour l'ajout d'un motif).
+function grilleRowHtml(g) {
+  g = g || { motifId: "", motifLabel: "", niveau: 2, sanction1: "avertissement", sanctionRecidive: "mise_a_pied" };
+  const mid = g.motifId || `motif_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const optN = (n) => `<option ${n === g.niveau ? "selected" : ""}>${n}</option>`;
+  const optS = (sel) => REF.sanctions.map((s) => `<option value="${s.id}" ${s.id === sel ? "selected" : ""}>${s.label}</option>`).join("");
+  return `<tr data-motif-id="${esc(mid)}">
+    <td><input class="g-label" value="${esc(g.motifLabel || "")}" placeholder="Nouveau motif…" /></td>
+    <td><select class="g-niveau">${[1, 2, 3, 4].map(optN).join("")}</select></td>
+    <td><select class="g-s1">${optS(g.sanction1)}</select></td>
+    <td><select class="g-s2">${optS(g.sanctionRecidive)}</select></td>
+    <td style="text-align:center"><button class="btn btn-mini danger-outline g-del" title="Supprimer ce motif">🗑</button></td>
+  </tr>`;
 }
 
 // ---------- Configuration ----------
@@ -638,23 +672,14 @@ async function vueConfig() {
 
     <div class="panel">
       <h2>Grille de gravité</h2>
-      <div class="gap-note">⚠️ GAP : grille par défaut proposée par l'outil — à valider/ajuster selon la politique disciplinaire réelle de l'entreprise.</div>
-      <table class="grille-table">
-        <thead><tr><th>Motif</th><th>Niveau (1-4)</th><th>Sanction 1ʳᵉ occurrence</th><th>Sanction en récidive (&lt; 3 ans)</th></tr></thead>
+      <div class="gap-note">⚠️ Cette grille pilote les motifs proposés à la saisie d'un dossier. Vous pouvez modifier un libellé, ajouter ou supprimer un motif. Enregistrez pour appliquer.</div>
+      <table class="grille-table" id="table-grille">
+        <thead><tr><th>Motif</th><th>Niveau (1-4)</th><th>Sanction 1ʳᵉ occurrence</th><th>Sanction en récidive (&lt; 3 ans)</th><th></th></tr></thead>
         <tbody>
-          ${c.grille
-            .map(
-              (g, i) => `
-            <tr data-i="${i}">
-              <td style="font-size:12.5px">${esc(g.motifLabel)}</td>
-              <td><select class="g-niveau">${[1, 2, 3, 4].map((n) => `<option ${n === g.niveau ? "selected" : ""}>${n}</option>`).join("")}</select></td>
-              <td><select class="g-s1">${REF.sanctions.map((s) => `<option value="${s.id}" ${s.id === g.sanction1 ? "selected" : ""}>${s.label}</option>`).join("")}</select></td>
-              <td><select class="g-s2">${REF.sanctions.map((s) => `<option value="${s.id}" ${s.id === g.sanctionRecidive ? "selected" : ""}>${s.label}</option>`).join("")}</select></td>
-            </tr>`
-            )
-            .join("")}
+          ${c.grille.map((g) => grilleRowHtml(g)).join("")}
         </tbody>
       </table>
+      <div class="btn-row"><button class="btn" id="btn-add-motif">➕ Ajouter un motif</button></div>
     </div>
 
     <div class="panel">
@@ -662,16 +687,19 @@ async function vueConfig() {
       <div class="gap-note">⚠️ Supprimer un salarié supprime aussi <b>définitivement</b> tous ses dossiers disciplinaires. Action irréversible, confirmation demandée.</div>
       ${
         salaries.length
-          ? `<table>
-        <thead><tr><th>Salarié</th><th>Poste</th><th>Dossiers rattachés</th><th></th></tr></thead>
+          ? `<table id="table-salaries">
+        <thead><tr><th>Nom</th><th>Prénom</th><th>Poste</th><th>Dossiers</th><th></th></tr></thead>
         <tbody>
           ${salaries
+            .slice()
+            .sort(parNom)
             .map(
-              (s) => `<tr>
-            <td><b>${esc(s.prenom)} ${esc(s.nom)}</b></td>
-            <td>${esc(s.poste || "—")}</td>
+              (s) => `<tr data-id="${s.id}">
+            <td class="cell-nom"><b>${esc(s.nom)}</b></td>
+            <td class="cell-prenom">${esc(s.prenom)}</td>
+            <td class="cell-poste">${esc(s.poste || "—")}</td>
             <td><button class="lien-inline btn-voir-dossiers" data-id="${s.id}">${nbDossiersDe(s.id)} dossier(s)</button></td>
-            <td style="text-align:right"><button class="btn danger-outline btn-suppr-salarie" data-id="${s.id}">🗑 Supprimer</button></td>
+            <td style="text-align:right; white-space:nowrap"><button class="btn btn-mini btn-modif-salarie" data-id="${s.id}">✏️ Modifier</button> <button class="btn btn-mini danger-outline btn-suppr-salarie" data-id="${s.id}">🗑</button></td>
           </tr>`
             )
             .join("")}
@@ -711,6 +739,35 @@ async function vueConfig() {
     btn.addEventListener("click", () => vueHistoriqueSalarie(btn.dataset.id))
   );
 
+  // Édition inline d'un salarié (prénom, nom, poste).
+  document.querySelectorAll(".btn-modif-salarie").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const s = salaries.find((x) => x.id === btn.dataset.id);
+      const tr = document.querySelector(`#table-salaries tr[data-id="${s.id}"]`);
+      tr.innerHTML = `
+        <td><input class="ed-nom" value="${esc(s.nom)}" /></td>
+        <td><input class="ed-prenom" value="${esc(s.prenom)}" /></td>
+        <td><input class="ed-poste" value="${esc(s.poste || "")}" /></td>
+        <td>${nbDossiersDe(s.id)} dossier(s)</td>
+        <td style="text-align:right; white-space:nowrap"><button class="btn btn-mini success ed-save">💾</button> <button class="btn btn-mini ed-cancel">Annuler</button></td>`;
+      tr.querySelector(".ed-cancel").addEventListener("click", vueConfig);
+      tr.querySelector(".ed-save").addEventListener("click", async () => {
+        try {
+          await api(`/api/salaries/${s.id}`, {
+            method: "PATCH",
+            body: {
+              nom: tr.querySelector(".ed-nom").value,
+              prenom: tr.querySelector(".ed-prenom").value,
+              poste: tr.querySelector(".ed-poste").value,
+            },
+          });
+          toast("Salarié modifié.");
+          vueConfig();
+        } catch (e) { toast(e.message, true); }
+      });
+    })
+  );
+
   // Suppression d'un salarié (et de ses dossiers) avec confirmation.
   document.querySelectorAll(".btn-suppr-salarie").forEach((btn) =>
     btn.addEventListener("click", async () => {
@@ -738,6 +795,19 @@ async function vueConfig() {
       } catch (e) { toast(e.message, true); }
     })
   );
+
+  // Grille : ajout d'un motif + suppression d'une ligne.
+  const brancherSuppressionMotif = () =>
+    document.querySelectorAll("#table-grille .g-del").forEach((btn) => {
+      btn.onclick = () => btn.closest("tr").remove();
+    });
+  brancherSuppressionMotif();
+  $("#btn-add-motif").addEventListener("click", () => {
+    document.querySelector("#table-grille tbody").insertAdjacentHTML("beforeend", grilleRowHtml());
+    brancherSuppressionMotif();
+    const dernier = document.querySelector("#table-grille tbody tr:last-child .g-label");
+    if (dernier) dernier.focus();
+  });
 
   $("#btn-export").addEventListener("click", async () => {
     try {
@@ -767,12 +837,16 @@ async function vueConfig() {
   });
 
   $("#btn-save-config").addEventListener("click", async () => {
-    const grille = [...document.querySelectorAll(".grille-table tbody tr")].map((tr, i) => ({
-      ...c.grille[i],
-      niveau: Number(tr.querySelector(".g-niveau").value),
-      sanction1: tr.querySelector(".g-s1").value,
-      sanctionRecidive: tr.querySelector(".g-s2").value,
-    }));
+    // La grille (source des motifs) est lue depuis le DOM : gère ajout/édition/suppression.
+    const grille = [...document.querySelectorAll("#table-grille tbody tr")]
+      .map((tr) => ({
+        motifId: tr.dataset.motifId,
+        motifLabel: tr.querySelector(".g-label").value.trim(),
+        niveau: Number(tr.querySelector(".g-niveau").value),
+        sanction1: tr.querySelector(".g-s1").value,
+        sanctionRecidive: tr.querySelector(".g-s2").value,
+      }))
+      .filter((g) => g.motifLabel); // on ignore les motifs sans libellé
     try {
       await api("/api/config", {
         method: "PUT",

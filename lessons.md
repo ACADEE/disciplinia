@@ -69,3 +69,11 @@
 - **Point clé métier** : le client sanctionne surtout via code du travail + code de la route + process internes + règles de courtoisie, PEU via le règlement intérieur. → Implémenté (F42) : `buildSystem` réécrit avec 5 bases de référence hiérarchisées (RI secondaire) ; config `processInternes` + `reglesCourtoisie` (seed + UI + save). `buildSystem` gère l'absence des champs (opt()).
 - Implémenté aussi : camembert SVG des motifs (F29, helper `camembertHtml`, regroupe >8 en « Autres motifs ») ; vue historique par salarié (F44, endpoint `GET /api/salaries/:id/historique` + `vueHistoriqueSalarie`, compte les sanctions invocables <3 ans). Testé en local.
 - Laissé volontairement en copier-coller : import Word/PDF du règlement (demande explicite Samuel « laisse 4 en copier coller »).
+
+### Session 10 — 2026-07-07 (suppression/édition salariés + grille éditable + qualif IA)
+- Suppression salarié en cascade (DELETE /api/salaries/:id) + popup de confirmation (helper `confirmModal`) + génération d'ID robuste `prochainNumero` (max+1, plus length+1) pour éviter collisions après suppression.
+- Édition salarié (PATCH /api/salaries/:id) : prénom/nom/poste + propagation du nom dénormalisé (`salarieNom`) sur ses dossiers. UI inline dans Config.
+- **Motifs désormais pilotés par la grille** (`motifsDepuisGrille`), plus par le catalogue statique : referentiels + POST /dossiers lisent config.grille. Permet ajout/édition/suppression de motifs en Config (grille éditable : label input + `btn-add-motif` + `g-del`, save relit le DOM). Motifs triés du moins au plus grave (niveau asc).
+- Qualif IA (`lib/qualifIA.js`, `proposerSanctionIA`) : lit la description libre + grille, propose la sanction la plus adaptée (JSON parsé, fallback déterministe si pas de clé). Cachée sur `dossier.propositionIA`. NON testable en local (pas de clé) → à valider sur Netlify.
+- Menu « Niveau de gravité » dans la qualif pilote la sanction retenue (`NIVEAU_SANCTION` map). Salariés triés par nom partout (`parNom`).
+- Tout testé en local sauf la proposition IA (nécessite ANTHROPIC_API_KEY).
