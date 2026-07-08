@@ -77,3 +77,10 @@
 - Qualif IA (`lib/qualifIA.js`, `proposerSanctionIA`) : lit la description libre + grille, propose la sanction la plus adaptée (JSON parsé, fallback déterministe si pas de clé). Cachée sur `dossier.propositionIA`. NON testable en local (pas de clé) → à valider sur Netlify.
 - Menu « Niveau de gravité » dans la qualif pilote la sanction retenue (`NIVEAU_SANCTION` map). Salariés triés par nom partout (`parNom`).
 - Tout testé en local sauf la proposition IA (nécessite ANTHROPIC_API_KEY).
+
+### Session 11 — 2026-07-08 (refonte UI/UX via skill ui-ux-pro-max)
+- Refonte visuelle : nouveau design system dans app.css (thème clair aéré, police Inter, palette bleu #2563eb convivial, ombres douces `--shadow-*`, rayons 14px, transitions 170ms, focus-visible, `prefers-reduced-motion`, tabular-nums pour KPI/pourcentages). TOUTES les classes existantes conservées → aucun changement dans app.js requis.
+- Icônes SVG (style Lucide) en remplacement des emojis dans la nav (index.html) — principal signal « pro » du skill. Emojis conservés dans les boutons d'action (labels).
+- Responsive amélioré : sous 900px la sidebar devient une barre supérieure (avant : `display:none` → nav cachée sur mobile). Body passe en flex-direction column.
+- Piège skill : `scripts` et `data` sont des symlinks non résolus sous Windows (fichiers texte contenant le chemin). Le vrai search.py est dans `.../2.5.0/src/ui-ux-pro-max/scripts/search.py`. Le skill recommandait un thème sombre data-dense — écarté au profit d'un thème clair (demande « convivial/simple/clair »).
+- Vérifié via DOM (screenshots en timeout tout au long de la session — souci renderer preview, pas l'app).
